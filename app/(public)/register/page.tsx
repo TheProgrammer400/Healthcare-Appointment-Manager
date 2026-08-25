@@ -32,6 +32,7 @@ export default function RegisterPage() {
         throw new Error(data.error?.message || 'Registration failed');
       }
 
+      window.dispatchEvent(new Event('auth-state-change'));
       router.push('/patient/doctors');
       router.refresh();
     } catch (err: any) {

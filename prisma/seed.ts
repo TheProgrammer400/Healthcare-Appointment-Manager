@@ -6,6 +6,9 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding healthcare appointment manager database...');
 
+  // Clear any past failed login attempts
+  await prisma.loginAttempt.deleteMany().catch(() => {});
+
   const adminPasswordHash = await bcrypt.hash('AdminPassword123!', 12);
   const doctorPasswordHash = await bcrypt.hash('DoctorPassword123!', 12);
   const patientPasswordHash = await bcrypt.hash('PatientPassword123!', 12);
@@ -13,7 +16,11 @@ async function main() {
   // 1. Create Admin User
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@clinic.com' },
-    update: {},
+    update: {
+      passwordHash: adminPasswordHash,
+      fullName: 'System Administrator',
+      role: UserRole.ADMIN,
+    },
     create: {
       email: 'admin@clinic.com',
       passwordHash: adminPasswordHash,
@@ -52,7 +59,11 @@ async function main() {
   for (const docData of doctorsData) {
     const user = await prisma.user.upsert({
       where: { email: docData.email },
-      update: {},
+      update: {
+        passwordHash: doctorPasswordHash,
+        fullName: docData.fullName,
+        role: UserRole.DOCTOR,
+      },
       create: {
         email: docData.email,
         passwordHash: doctorPasswordHash,
@@ -64,7 +75,11 @@ async function main() {
 
     const docProfile = await prisma.doctorProfile.upsert({
       where: { userId: user.id },
-      update: {},
+      update: {
+        specialisation: docData.specialisation,
+        slotDurationMinutes: docData.slotDurationMinutes,
+        bio: docData.bio,
+      },
       create: {
         userId: user.id,
         specialisation: docData.specialisation,
@@ -82,7 +97,10 @@ async function main() {
             dayOfWeek,
           },
         },
-        update: {},
+        update: {
+          startTime: '09:00',
+          endTime: '17:00',
+        },
         create: {
           doctorId: docProfile.id,
           dayOfWeek,
@@ -98,7 +116,11 @@ async function main() {
   // 3. Create Sample Patient
   const patientUser = await prisma.user.upsert({
     where: { email: 'patient@clinic.com' },
-    update: {},
+    update: {
+      passwordHash: patientPasswordHash,
+      fullName: 'John Doe',
+      role: UserRole.PATIENT,
+    },
     create: {
       email: 'patient@clinic.com',
       passwordHash: patientPasswordHash,

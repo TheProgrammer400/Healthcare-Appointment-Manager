@@ -32,11 +32,12 @@ function LoginForm() {
         throw new Error(data.error?.message || 'Login failed');
       }
 
+      window.dispatchEvent(new Event('auth-state-change'));
       const role = data.data.role;
       if (fromPath) {
         router.push(fromPath);
       } else if (role === 'PATIENT') {
-        router.push('/patient/doctors');
+        router.push('/patient/dashboard');
       } else if (role === 'DOCTOR') {
         router.push('/doctor/dashboard');
       } else if (role === 'ADMIN') {
