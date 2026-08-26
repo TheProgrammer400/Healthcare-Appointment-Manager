@@ -13,6 +13,43 @@ interface PostVisitSummaryProps {
 export function PostVisitSummaryView({ visitSummary, isDoctorOrAdmin }: PostVisitSummaryProps) {
   const prescriptionList: any[] = Array.isArray(visitSummary.prescription) ? visitSummary.prescription : [];
 
+  const renderFormattedSummary = (summaryText: string) => {
+    // Split by markdown headers starting with ###
+    const sections = summaryText.split(/(?=###\s+)/g);
+
+    return (
+      <div className="space-y-3">
+        {sections.map((section, idx) => {
+          const trimmed = section.trim();
+          if (!trimmed) return null;
+
+          if (trimmed.startsWith('###')) {
+            const lines = trimmed.split('\n');
+            const title = lines[0].replace(/^###\s*/, '').trim();
+            const body = lines.slice(1).join('\n').trim();
+
+            return (
+              <div key={idx} className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                <h6 className="text-xs font-extrabold uppercase tracking-wider text-brand-300">
+                  {title}
+                </h6>
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line font-sans">
+                  {body}
+                </p>
+              </div>
+            );
+          }
+
+          return (
+            <p key={idx} className="text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line font-sans">
+              {trimmed}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="glass-card rounded-2xl p-6 space-y-6">
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -25,13 +62,11 @@ export function PostVisitSummaryView({ visitSummary, isDoctorOrAdmin }: PostVisi
       </div>
 
       {visitSummary.llmPatientSummary ? (
-        <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-3">
-          <h5 className="text-xs font-bold uppercase tracking-wider text-brand-300 flex items-center gap-1.5">
-            <ClipboardList className="w-4 h-4" /> Patient-Friendly Summary
+        <div className="space-y-3">
+          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <ClipboardList className="w-4 h-4 text-brand-400" /> Patient-Friendly Summary
           </h5>
-          <div className="text-sm text-slate-200 leading-relaxed whitespace-pre-line font-sans">
-            {visitSummary.llmPatientSummary}
-          </div>
+          {renderFormattedSummary(visitSummary.llmPatientSummary)}
         </div>
       ) : (
         <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs flex items-center gap-2">
