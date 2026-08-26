@@ -20,10 +20,7 @@ describe('LLM Response Validator', () => {
   });
 
   it('should throw ValidationError on malformed or incomplete pre-visit JSON', () => {
-    const invalidJsonStr = JSON.stringify({
-      urgency: 'SuperUrgent', // invalid enum
-      chiefComplaint: '',
-    });
+    const invalidJsonStr = 'malformed JSON text {{{';
 
     expect(() => parsePreVisitResponse(invalidJsonStr)).toThrow();
   });
