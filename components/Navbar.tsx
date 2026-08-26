@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Activity, LogOut, Calendar, User, ShieldAlert, Stethoscope, ChevronDown, X, Mail, Phone, Shield } from 'lucide-react';
+import { Activity, LogOut, Calendar, User, ShieldAlert, Stethoscope, ChevronDown, X, Mail, Phone, Shield, Clock } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 
 export function Navbar() {
@@ -114,10 +114,13 @@ export function Navbar() {
                 {currentUser.role === 'DOCTOR' && (
                   <div className="flex items-center gap-4">
                     <Link href="/doctor/dashboard" className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-brand-300 font-medium transition-colors">
-                      <Calendar className="w-4 h-4" /> Appointments
+                      <Calendar className="w-4 h-4" /> Dashboard
+                    </Link>
+                    <Link href="/doctor/profile" className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-brand-300 font-medium transition-colors">
+                      <User className="w-4 h-4" /> My Profile
                     </Link>
                     <Link href="/doctor/availability" className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-brand-300 font-medium transition-colors">
-                      <User className="w-4 h-4" /> Availability & Leave
+                      <Clock className="w-4 h-4" /> Availability
                     </Link>
                   </div>
                 )}
@@ -238,6 +241,16 @@ export function Navbar() {
                 </div>
               </div>
             </div>
+
+            {currentUser.role === 'DOCTOR' && (
+              <Link
+                href="/doctor/profile"
+                onClick={() => setShowProfileModal(false)}
+                className="block text-center text-xs font-semibold text-brand-300 hover:text-white bg-brand-950/60 border border-brand-800/80 p-2.5 rounded-xl transition-colors"
+              >
+                Edit Doctor Profile & Credentials
+              </Link>
+            )}
 
             <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
               <button

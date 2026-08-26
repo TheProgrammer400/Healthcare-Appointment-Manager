@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Stethoscope, UserPlus, AlertCircle, CheckCircle2, Loader2, Clock } from 'lucide-react';
+import { Stethoscope, UserPlus, AlertCircle, CheckCircle2, Loader2, Clock, ShieldAlert, Check, X } from 'lucide-react';
 
 export default function AdminDoctorsPage() {
   const [doctors, setDoctors] = useState<any[]>([]);
+  const [credentialRequests, setCredentialRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -20,21 +22,52 @@ export default function AdminDoctorsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchDoctors();
+    fetchData();
   }, []);
 
-  const fetchDoctors = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/doctors');
-      const data = await res.json();
-      if (data.success) {
-        setDoctors(data.data.doctors);
+      // 1. Fetch doctors
+      const docRes = await fetch('/api/doctors');
+      const docData = await docRes.json();
+      if (docData.success) {
+        setDoctors(docData.data.doctors);
+      }
+
+      // 2. Fetch pending credential requests
+      const reqRes = await fetch('/api/admin/credential-requests');
+      const reqData = await reqRes.json();
+      if (reqData.success) {
+        setCredentialRequests(reqData.data.requests || []);
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCredentialAction = async (requestId: string, action: 'APPROVE' | 'REJECT') => {
+    setProcessingId(requestId);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch('/api/admin/credential-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, action }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || 'Failed to process request');
+      }
+      setSuccessMsg(data.data.message || `Request ${action.toLowerCase()}d successfully.`);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Error processing credential request.');
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -70,7 +103,7 @@ export default function AdminDoctorsPage() {
       setPassword('');
       setSpecialisation('');
       setBio('');
-      fetchDoctors();
+      fetchData();
     } catch (err: any) {
       setError(err.message || 'Error creating doctor account.');
     } finally {
@@ -83,10 +116,10 @@ export default function AdminDoctorsPage() {
       <div className="border-b border-slate-800 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-3">
-            <Stethoscope className="w-8 h-8 text-brand-400" /> Admin Doctor Profiles Management
+            <Stethoscope className="w-8 h-8 text-brand-400" /> Admin Doctor Management
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Provision new doctor accounts, configure slot durations, and review medical staff.
+            Provision doctor accounts, review staff details, and approve credential change requests.
           </p>
         </div>
 
@@ -102,6 +135,60 @@ export default function AdminDoctorsPage() {
         <div className="p-4 rounded-xl bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{successMsg}</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 rounded-xl bg-red-950/60 border border-red-800 text-red-300 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Pending Credential Requests Section */}
+      {credentialRequests.length > 0 && (
+        <div className="glass-card rounded-2xl p-6 border border-amber-500/30 bg-amber-950/10 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-extrabold text-white text-base flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-amber-400" /> Pending Doctor Credential Change Requests ({credentialRequests.length})
+            </h3>
+          </div>
+
+          <div className="space-y-3">
+            {credentialRequests.map((req) => (
+              <div key={req.id} className="bg-slate-900/90 p-4 rounded-xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h4 className="font-bold text-white text-sm">{req.doctorName}</h4>
+                  <div className="flex flex-wrap gap-4 text-xs text-slate-300">
+                    {req.requestedEmail && req.requestedEmail !== req.currentEmail && (
+                      <span>Email: <span className="line-through text-slate-500">{req.currentEmail}</span> ➔ <strong className="text-amber-300">{req.requestedEmail}</strong></span>
+                    )}
+                    {req.requestedPhone && req.requestedPhone !== req.currentPhone && (
+                      <span>Phone: <span className="line-through text-slate-500">{req.currentPhone || 'None'}</span> ➔ <strong className="text-amber-300">{req.requestedPhone}</strong></span>
+                    )}
+                  </div>
+                  {req.reason && <p className="text-xs text-slate-400 italic mt-1">Reason: "{req.reason}"</p>}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    disabled={processingId === req.id}
+                    onClick={() => handleCredentialAction(req.id, 'REJECT')}
+                    className="inline-flex items-center gap-1 bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-800/80 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                  >
+                    <X className="w-3.5 h-3.5" /> Reject
+                  </button>
+                  <button
+                    disabled={processingId === req.id}
+                    onClick={() => handleCredentialAction(req.id, 'APPROVE')}
+                    className="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-4 py-1.5 rounded-xl text-xs font-semibold shadow-md transition-all"
+                  >
+                    {processingId === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Check className="w-3.5 h-3.5" /> Approve Change</>}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

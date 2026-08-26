@@ -99,3 +99,17 @@ export const rescheduleAppointmentSchema = z.object({
 });
 
 export type RescheduleAppointmentInput = z.infer<typeof rescheduleAppointmentSchema>;
+
+export const updateDoctorProfileSchema = z.object({
+  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  specialisation: z.string().min(2, 'Speciality is required'),
+  age: z.union([z.number().int().min(18).max(100), z.string(), z.null()]).optional(),
+  address: z.string().nullable().optional(),
+  bio: z.string().nullable().optional(),
+  requestedEmail: z.string().email('Invalid email address').nullable().optional(),
+  requestedPhone: z.string().nullable().optional(),
+  requestReason: z.string().nullable().optional(),
+});
+
+export type UpdateDoctorProfileInput = z.infer<typeof updateDoctorProfileSchema>;
+

@@ -106,6 +106,8 @@ model DoctorProfile {
   specialisation      String
   slotDurationMinutes Int      @default(30) @map("slot_duration_minutes")
   bio                 String?
+  age                 Int?     @map("age")
+  address             String?  @map("address")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
@@ -116,6 +118,28 @@ model DoctorProfile {
 
   @@index([specialisation])
   @@map("doctor_profiles")
+}
+
+enum CredentialChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model CredentialChangeRequest {
+  id             String                 @id @default(cuid())
+  userId         String                 @map("user_id")
+  currentEmail   String                 @map("current_email")
+  requestedEmail String?                @map("requested_email")
+  currentPhone   String?                @map("current_phone")
+  requestedPhone String?                @map("requested_phone")
+  reason         String?
+  status         CredentialChangeStatus @default(PENDING)
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  @@index([userId, status])
+  @@map("credential_change_requests")
 }
 
 model DoctorWorkingHours {

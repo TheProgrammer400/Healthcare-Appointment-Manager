@@ -6,7 +6,6 @@ import {
   Calendar,
   Clock,
   CheckCircle2,
-  FileText,
   Loader2,
   AlertCircle,
   Search,
@@ -15,14 +14,11 @@ import {
   AlertTriangle,
   ChevronRight,
   ArrowRight,
-  Pill,
   User,
-  Activity,
 } from 'lucide-react';
 import Link from 'next/link';
-import { PreVisitSummaryView } from '@/components/PreVisitSummaryView';
-import { PostVisitSummaryView } from '@/components/PostVisitSummaryView';
 import { VisitSummaryModal } from '@/components/VisitSummaryModal';
+import { PatientDetailsModal } from '@/components/PatientDetailsModal';
 
 export default function DoctorDashboardPage() {
   const [user, setUser] = useState<any | null>(null);
@@ -30,11 +26,12 @@ export default function DoctorDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeModalAppt, setActiveModalAppt] = useState<any | null>(null);
-  const [selectedAppt, setSelectedAppt] = useState<any | null>(null);
 
-  // Search & Filter state
-  const [searchQuery, setSearchQuery] = useState('');
+  // State Management for Category Tabs & Patient Details Modal
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [selectedAppt, setSelectedAppt] = useState<any | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchInitialData();
@@ -55,19 +52,13 @@ export default function DoctorDashboardPage() {
       const apptRes = await fetch('/api/appointments');
       const apptData = await apptRes.json();
       if (apptData.success) {
-        const list = apptData.data.appointments || [];
-        setAppointments(list);
-        if (list.length > 0 && !selectedAppt) {
-          // Select first upcoming or first appointment
-          const firstActive = list.find((a: any) => a.status === 'CONFIRMED') || list[0];
-          setSelectedAppt(firstActive);
-        }
+        setAppointments(apptData.data.appointments || []);
       } else {
         setError(apptData.error?.message || 'Failed to fetch doctor appointments');
       }
     } catch (err) {
       setError('Network error loading dashboard data');
-    } fontally: {
+    } finally {
       setLoading(false);
     }
   };
@@ -87,6 +78,19 @@ export default function DoctorDashboardPage() {
     } catch (err) {
       console.error('Error refreshing appointments:', err);
     }
+  };
+
+  // Handler for category tab switching (Resets selected patient & closes modal)
+  const handleCategoryChange = (newCategory: string) => {
+    setStatusFilter(newCategory);
+    setSelectedAppt(null);
+    setIsDetailsModalOpen(false);
+  };
+
+  // Handler for patient selection (Opens PatientDetailsModal)
+  const handleSelectPatient = (appt: any) => {
+    setSelectedAppt(appt);
+    setIsDetailsModalOpen(true);
   };
 
   // Greeting based on current hour
@@ -126,7 +130,7 @@ export default function DoctorDashboardPage() {
   // Filtered Appointments list
   const filteredAppointments = useMemo(() => {
     return appointments.filter((appt) => {
-      // Filter by status
+      // Filter by category tab
       if (statusFilter === 'UPCOMING' && appt.status !== 'CONFIRMED') return false;
       if (statusFilter === 'WAITING' && appt.status !== 'CONFIRMED' && appt.status !== 'HOLD') return false;
       if (statusFilter === 'COMPLETED' && appt.status !== 'COMPLETED') return false;
@@ -273,7 +277,7 @@ export default function DoctorDashboardPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Column (2/3 width): Next Patient, Queue & Patient Workspace */}
+          {/* Main Column (2/3 width): Next Patient & Patient Queue */}
           <div className="lg:col-span-2 space-y-6">
             {/* 3. Next Patient Card */}
             {nextPatient && (
@@ -305,7 +309,7 @@ export default function DoctorDashboardPage() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => setSelectedAppt(nextPatient)}
+                      onClick={() => handleSelectPatient(nextPatient)}
                       className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
                     >
                       View Intake
@@ -321,7 +325,7 @@ export default function DoctorDashboardPage() {
               </div>
             )}
 
-            {/* 4. Patient Queue Section with Search & Filter */}
+            {/* 4. Patient Queue Section with Search & Category Switcher */}
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h3 className="text-base font-extrabold text-white flex items-center gap-2">
@@ -340,7 +344,7 @@ export default function DoctorDashboardPage() {
                 </div>
               </div>
 
-              {/* 5. Queue Filter Pills */}
+              {/* Category Tab Switcher (Clears selected patient and closes modal on switch) */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
                 {[
                   { key: 'ALL', label: `All (${appointments.length})` },
@@ -350,8 +354,8 @@ export default function DoctorDashboardPage() {
                 ].map((tab) => (
                   <button
                     key={tab.key}
-                    onClick={() => setStatusFilter(tab.key)}
-                    className={`px-3 py-1.5 rounded-xl font-semibold transition-all whitespace-nowrap ${
+                    onClick={() => handleCategoryChange(tab.key)}
+                    className={`px-3.5 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
                       statusFilter === tab.key
                         ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20'
                         : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800'
@@ -363,26 +367,21 @@ export default function DoctorDashboardPage() {
               </div>
 
               {/* Queue List Cards */}
-              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                 {filteredAppointments.length === 0 ? (
                   <div className="p-8 text-center glass-card rounded-2xl text-xs text-slate-400">
-                    No patients match your search filter.
+                    No patients found in this category filter.
                   </div>
                 ) : (
                   filteredAppointments.map((appt) => {
-                    const isSelected = selectedAppt?.id === appt.id;
                     const isCancelled = appt.status === 'CANCELLED';
 
                     return (
                       <div
                         key={appt.id}
-                        onClick={() => setSelectedAppt(appt)}
+                        onClick={() => handleSelectPatient(appt)}
                         className={`glass-card p-4 rounded-2xl cursor-pointer transition-all border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                          isCancelled ? 'opacity-50 bg-slate-950/40 border-slate-900' : ''
-                        } ${
-                          isSelected
-                            ? 'border-brand-400 bg-slate-900/90 shadow-lg shadow-brand-500/10'
-                            : 'border-slate-800/80 hover:border-slate-700'
+                          isCancelled ? 'opacity-50 bg-slate-950/40 border-slate-900' : 'border-slate-800/80 hover:border-brand-400/60'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -390,7 +389,9 @@ export default function DoctorDashboardPage() {
                             {new Date(appt.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                           <div>
-                            <h4 className="font-bold text-white text-sm">{appt.patient?.user?.fullName}</h4>
+                            <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                              {appt.patient?.user?.fullName}
+                            </h4>
                             <p className="text-xs text-slate-400">{doctorSpecialization}</p>
                           </div>
                         </div>
@@ -404,7 +405,7 @@ export default function DoctorDashboardPage() {
                           {getUrgencyPill(appt.symptomForm?.llmUrgency)}
                           {getStatusBadge(appt.status)}
 
-                          {appt.status === 'CONFIRMED' && (
+                          {appt.status === 'CONFIRMED' ? (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -414,6 +415,16 @@ export default function DoctorDashboardPage() {
                             >
                               Start Visit
                             </button>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectPatient(appt);
+                              }}
+                              className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all ml-1"
+                            >
+                              View Details
+                            </button>
                           )}
                         </div>
                       </div>
@@ -422,76 +433,11 @@ export default function DoctorDashboardPage() {
                 )}
               </div>
             </div>
-
-            {/* 6. Selected Patient Workspace & Consultation Workflow Tracker */}
-            {selectedAppt && (
-              <div className="space-y-6 pt-4 border-t border-slate-800">
-                {/* Patient Information Card */}
-                <div className="glass-card rounded-2xl p-6 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-2">
-                    <div>
-                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <User className="w-5 h-5 text-brand-400" /> {selectedAppt.patient?.user?.fullName}
-                      </h2>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Patient ID: <span className="font-mono text-slate-300">PT-{selectedAppt.patient?.id.slice(-6).toUpperCase()}</span> • Contact: {selectedAppt.patient?.user?.email}
-                      </p>
-                    </div>
-                    <div>{getStatusBadge(selectedAppt.status)}</div>
-                  </div>
-
-                  {/* Consultation Workflow Step Tracker */}
-                  <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-3">
-                      Consultation Workflow Progress
-                    </span>
-                    <div className="flex items-center justify-between text-xs overflow-x-auto pb-1 gap-2">
-                      <div className={`flex items-center gap-1.5 ${selectedAppt.symptomForm ? 'text-emerald-400 font-semibold' : 'text-slate-500'}`}>
-                        <CheckCircle2 className="w-4 h-4" /> <span>Pre-Visit Intake</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-700 shrink-0" />
-                      <div className={`flex items-center gap-1.5 ${selectedAppt.symptomForm?.llmStatus === 'SUCCESS' ? 'text-emerald-400 font-semibold' : 'text-slate-500'}`}>
-                        <CheckCircle2 className="w-4 h-4" /> <span>AI Triage</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-700 shrink-0" />
-                      <div className={`flex items-center gap-1.5 ${selectedAppt.status === 'COMPLETED' ? 'text-emerald-400 font-semibold' : 'text-brand-400 font-bold'}`}>
-                        <Activity className="w-4 h-4" /> <span>Consultation</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-700 shrink-0" />
-                      <div className={`flex items-center gap-1.5 ${selectedAppt.visitSummary ? 'text-emerald-400 font-semibold' : 'text-slate-500'}`}>
-                        <FileText className="w-4 h-4" /> <span>Clinical Notes & Prescription</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {selectedAppt.status === 'CONFIRMED' && (
-                    <div className="flex items-center justify-end pt-2">
-                      <button
-                        onClick={() => setActiveModalAppt(selectedAppt)}
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 transition-all"
-                      >
-                        <CheckCircle2 className="w-4 h-4" /> Complete Consultation & Prescribe
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* AI Clinical Intake View */}
-                {selectedAppt.symptomForm && (
-                  <PreVisitSummaryView symptomForm={selectedAppt.symptomForm} />
-                )}
-
-                {/* Post-Visit Summary & Prescription View */}
-                {selectedAppt.visitSummary && (
-                  <PostVisitSummaryView visitSummary={selectedAppt.visitSummary} isDoctorOrAdmin={true} />
-                )}
-              </div>
-            )}
           </div>
 
           {/* Right Sidebar (1/3 width): Needs Attention, Availability, Recent Patients */}
           <div className="space-y-6">
-            {/* 7. Needs Your Attention Card */}
+            {/* Needs Your Attention Card */}
             <div className="glass-card rounded-2xl p-5 border border-amber-500/30 bg-amber-950/10 space-y-4">
               <h4 className="font-bold text-white text-sm flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-400" /> Needs Your Attention
@@ -500,7 +446,7 @@ export default function DoctorDashboardPage() {
               <div className="space-y-2.5 text-xs">
                 {stats.waiting > 0 && (
                   <div
-                    onClick={() => setStatusFilter('UPCOMING')}
+                    onClick={() => handleCategoryChange('UPCOMING')}
                     className="p-3 bg-slate-900/80 rounded-xl border border-slate-800/80 hover:border-amber-500/40 cursor-pointer transition-colors flex items-center justify-between"
                   >
                     <span className="text-slate-300 font-medium">⚠️ {stats.waiting} appointments awaiting visit</span>
@@ -510,7 +456,7 @@ export default function DoctorDashboardPage() {
 
                 {stats.pendingNotes > 0 && (
                   <div
-                    onClick={() => setStatusFilter('COMPLETED')}
+                    onClick={() => handleCategoryChange('COMPLETED')}
                     className="p-3 bg-slate-900/80 rounded-xl border border-slate-800/80 hover:border-amber-500/40 cursor-pointer transition-colors flex items-center justify-between"
                   >
                     <span className="text-slate-300 font-medium">⚠️ {stats.pendingNotes} visits awaiting clinical notes</span>
@@ -526,7 +472,7 @@ export default function DoctorDashboardPage() {
               </div>
             </div>
 
-            {/* 8. Today's Availability Shortcut */}
+            {/* Today's Availability Shortcut */}
             <div className="glass-card rounded-2xl p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-white text-sm flex items-center gap-2">
@@ -552,7 +498,7 @@ export default function DoctorDashboardPage() {
               </Link>
             </div>
 
-            {/* 9. Recent Patients List */}
+            {/* Recent Patients List */}
             <div className="glass-card rounded-2xl p-5 space-y-4">
               <h4 className="font-bold text-white text-sm flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-emerald-400" /> Recent Completed Patients
@@ -565,7 +511,7 @@ export default function DoctorDashboardPage() {
                   recentPatients.map((appt) => (
                     <div
                       key={appt.id}
-                      onClick={() => setSelectedAppt(appt)}
+                      onClick={() => handleSelectPatient(appt)}
                       className="p-3 bg-slate-900/60 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all flex items-center justify-between text-xs"
                     >
                       <div>
@@ -584,6 +530,22 @@ export default function DoctorDashboardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Patient Details Modal */}
+      {isDetailsModalOpen && selectedAppt && (
+        <PatientDetailsModal
+          appointment={selectedAppt}
+          doctorSpecialization={doctorSpecialization}
+          onClose={() => {
+            setIsDetailsModalOpen(false);
+            setSelectedAppt(null);
+          }}
+          onStartConsultation={(appt) => {
+            setIsDetailsModalOpen(false);
+            setActiveModalAppt(appt);
+          }}
+        />
       )}
 
       {/* Consultation & Visit Summary Modal */}
